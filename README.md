@@ -1,2 +1,146 @@
-# page
-ビジネス戦闘力診断サイト
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>あなたのビジネス戦闘力診断 - 自動評価版</title>
+  <!-- Chart.js のCDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f9f9f9; }
+    .container { max-width: 800px; margin: auto; background-color: #fff; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { text-align: center; }
+    fieldset { margin-bottom: 20px; padding: 15px; }
+    legend { font-size: 1.2em; font-weight: bold; }
+    .question { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; }
+    input[type=number] { width: 100%; padding: 8px; box-sizing: border-box; }
+    button { display: block; margin: 20px auto; padding: 10px 20px; font-size: 16px; }
+    #result { margin-top: 40px; }
+    #scoreDisplay { margin-top: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>あなたのビジネス戦闘力診断</h1>
+    <form id="diagnosisForm">
+      
+      <!-- 体力評価 -->
+      <fieldset>
+        <legend>体力</legend>
+        <div class="question">
+          <label for="exercise">週に何回運動をしていますか？ (例: 0〜7回)</label>
+          <input type="number" id="exercise" name="exercise" min="0" max="14" value="0">
+        </div>
+      </fieldset>
+      
+      <!-- 免疫力評価 -->
+      <fieldset>
+        <legend>免疫力</legend>
+        <div class="question">
+          <label for="colds">過去1年で風邪をひいた回数は？</label>
+          <input type="number" id="colds" name="colds" min="0" value="0">
+        </div>
+        <div class="question">
+          <label for="absences">過去1年で体調不良で仕事を休んだ回数は？</label>
+          <input type="number" id="absences" name="absences" min="0" value="0">
+        </div>
+      </fieldset>
+      
+      <!-- 気力評価 -->
+      <fieldset>
+        <legend>気力</legend>
+        <div class="question">
+          <label for="depressedDays">過去1ヶ月で気分が落ち込んだ日数は？ (0〜30)</label>
+          <input type="number" id="depressedDays" name="depressedDays" min="0" max="30" value="0">
+        </div>
+        <div class="question">
+          <label for="relaxDays">過去1ヶ月で十分にリラックスできた日数は？ (0〜30)</label>
+          <input type="number" id="relaxDays" name="relaxDays" min="0" max="30" value="0">
+        </div>
+      </fieldset>
+      
+      <button type="submit">診断する</button>
+    </form>
+    
+    <div id="result">
+      <canvas id="resultChart"></canvas>
+    </div>
+    <div id="scoreDisplay"></div>
+  </div>
+
+  <script>
+    const form = document.getElementById('diagnosisForm');
+    const ctx = document.getElementById('resultChart').getContext('2d');
+    let chart;
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      // 体力の評価（週の運動回数）
+      const exercise = parseInt(document.getElementById('exercise').value);
+      // 週7回以上の運動で最高スコア10、0回なら0点
+      let physicalScore = Math.min(10, (exercise / 7) * 10);
+
+      // 免疫力の評価（風邪の回数と欠勤回数）
+      const colds = parseInt(document.getElementById('colds').value);
+      const absences = parseInt(document.getElementById('absences').value);
+      // 風邪1回につき2点、欠勤1回につき1点を減点
+      let immuneScore = Math.max(0, 10 - (colds * 2 + absences));
+
+      // 気力の評価（落ち込み日数とリラックスできた日数）
+      const depressedDays = parseInt(document.getElementById('depressedDays').value);
+      const relaxDays = parseInt(document.getElementById('relaxDays').value);
+      // 落ち込みが多いほどスコア低、0日なら10点、30日なら0点
+      let depressedScore = Math.max(0, 10 - ((depressedDays / 30) * 10));
+      // リラックスできた日数は高いほど良い、30日なら10点、0日なら0点
+      let relaxScore = Math.min(10, (relaxDays / 30) * 10);
+      // 気力は両者の平均で評価
+      let mentalScore = (depressedScore + relaxScore) / 2;
+
+      // Chart.js 用のデータセット作成
+      const data = {
+        labels: ['体力', '免疫力', '気力'],
+        datasets: [{
+          data: [physicalScore, immuneScore, mentalScore],
+          backgroundColor: [
+            'rgba(255, 99, 132, 0.7)',
+            'rgba(54, 162, 235, 0.7)',
+            'rgba(255, 206, 86, 0.7)'
+          ],
+          borderColor: [
+            'rgba(255, 99, 132, 1)',
+            'rgba(54, 162, 235, 1)',
+            'rgba(255, 206, 86, 1)'
+          ],
+          borderWidth: 1
+        }]
+      };
+
+      // 既にグラフが描画されていれば破棄
+      if (chart) {
+        chart.destroy();
+      }
+      
+      // 円グラフの生成
+      chart = new Chart(ctx, {
+        type: 'pie',
+        data: data,
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: 'bottom' },
+            title: { display: true, text: 'ビジネス戦闘力診断結果' }
+          }
+        }
+      });
+
+      // 数値として各スコアも表示
+      const scoreDisplay = document.getElementById('scoreDisplay');
+      scoreDisplay.innerHTML = `<h3>各スコア</h3>
+        <p>体力: ${physicalScore.toFixed(1)} / 10</p>
+        <p>免疫力: ${immuneScore.toFixed(1)} / 10</p>
+        <p>気力: ${mentalScore.toFixed(1)} / 10</p>`;
+    });
+  </script>
+</body>
+</html>
